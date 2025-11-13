@@ -21,6 +21,7 @@ interface ContentState {
   settings: ContentSettings;
   addSource: (payload: Omit<Source, 'id' | 'createdAt'>) => void;
   updateSourceStatus: (id: string, status: SourceStatus) => void;
+  updateSourcePrompts: (id: string, prompts: Pick<Source, 'filterPrompt' | 'formatPrompt'>) => void;
   addPost: (payload: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'history'>) => void;
   updatePost: (id: string, data: Partial<Post>) => void;
   appendHistory: (postId: string, event: Omit<PostHistoryEvent, 'id' | 'timestamp'>) => void;
@@ -182,6 +183,11 @@ export const useContentStore = create<ContentState>((set) => ({
   updateSourceStatus(id, status) {
     set((state) => ({
       sources: state.sources.map((source) => (source.id === id ? { ...source, status } : source)),
+    }));
+  },
+  updateSourcePrompts(id, prompts) {
+    set((state) => ({
+      sources: state.sources.map((source) => (source.id === id ? { ...source, ...prompts } : source)),
     }));
   },
   addPost(payload) {
