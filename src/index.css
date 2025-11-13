@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+@layer base {
+	:root {
+		--font-sans: 'Inter', 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		--color-background: 246 248 252;
+		--color-foreground: 33 41 70;
+		--color-surface: 255 255 255;
+		--color-surface-elevated: 247 249 253;
+		--color-muted: 234 238 248;
+		--color-muted-foreground: 120 130 160;
+		--color-border: 220 226 239;
+		--color-ring: 78 115 248;
+		--color-primary: 78 115 248;
+		--color-primary-hover: 66 105 240;
+		--color-primary-foreground: 255 255 255;
+		--color-secondary: 240 244 255;
+		--color-secondary-hover: 232 238 255;
+		--color-secondary-foreground: 60 76 130;
+		--color-destructive: 236 91 117;
+		--color-destructive-hover: 222 64 92;
+		--color-destructive-foreground: 255 255 255;
+		--radius-lg: 1rem;
+		color-scheme: light;
+		font-family: var(--font-sans);
+		background-color: rgb(var(--color-background));
+		color: rgb(var(--color-foreground));
+	}
+
+	:root.dark,
+	:root[data-theme='dark'] {
+		color-scheme: dark;
+		--color-background: 15 18 28;
+		--color-foreground: 222 228 255;
+		--color-surface: 23 27 40;
+		--color-surface-elevated: 30 35 50;
+		--color-muted: 36 42 60;
+		--color-muted-foreground: 160 172 204;
+		--color-border: 45 53 74;
+		--color-ring: 118 159 255;
+		--color-primary: 118 159 255;
+		--color-primary-hover: 104 146 245;
+		--color-primary-foreground: 18 22 33;
+		--color-secondary: 40 48 68;
+		--color-secondary-hover: 50 60 80;
+		--color-secondary-foreground: 206 216 250;
+		--color-destructive: 248 113 140;
+		--color-destructive-hover: 236 72 111;
+		--color-destructive-foreground: 23 27 40;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		background-color: rgb(var(--color-background));
+		color: rgb(var(--color-foreground));
+		transition: background-color 220ms ease, color 220ms ease;
+	}
+
+	* {
+		border-color: rgb(var(--color-border));
+		transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+	}
+}
+
+@layer utilities {
+	.text-balance {
+		text-wrap: balance;
+	}
+
+	.text-foreground {
+		color: rgb(var(--color-foreground));
+	}
+
+	.text-muted {
+		color: rgb(var(--color-muted-foreground));
+	}
+
+	.bg-surface {
+		background-color: rgb(var(--color-surface));
+	}
+
+	.bg-surface-elevated {
+		background-color: rgb(var(--color-surface-elevated));
+	}
+
+	.bg-muted {
+		background-color: rgb(var(--color-muted));
+	}
+
+	.border-muted {
+		border-color: rgb(var(--color-border));
+	}
+}
