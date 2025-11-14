@@ -11,17 +11,23 @@ export function ProfileOverviewPage() {
   const updateProfile = useAuthStore((state) => state.updateProfile);
   const [name, setName] = useState(user?.name ?? '');
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!user) {
     return null;
   }
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim()) return;
-    updateProfile({ name: name.trim() });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setIsSaving(true);
+    try {
+      await updateProfile({ name: name.trim() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -37,8 +43,8 @@ export function ProfileOverviewPage() {
               <label className="text-xs font-medium uppercase tracking-wide text-muted">Имя</label>
               <Input value={name} onChange={(event) => setName(event.target.value)} />
             </div>
-            <Button type="submit" className="w-fit">
-              Сохранить
+            <Button type="submit" className="w-fit" disabled={isSaving}>
+              {isSaving ? 'Сохраняем...' : 'Сохранить'}
             </Button>
             {saved ? <span className="text-xs text-emerald-500">Изменения сохранены</span> : null}
           </form>

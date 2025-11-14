@@ -79,30 +79,6 @@ export function AdminLayout() {
 		</nav>
 	);
 
-	const userPanel = (
-		<div className="flex flex-col gap-3 rounded-2xl border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface-elevated))] p-4 transition-colors">
-			<div>
-				<p className="text-xs text-[rgb(var(--color-muted-foreground))]">Вы вошли как</p>
-				<p className="text-sm font-medium text-[rgb(var(--color-foreground))]">{user?.name}</p>
-				<p className="text-xs text-[rgb(var(--color-muted-foreground))]">{user?.email}</p>
-				<p className="mt-1 text-xs uppercase tracking-wide text-[rgb(var(--color-primary))]">
-					{user ? roleLabel[user.role] : ''}
-				</p>
-			</div>
-			<div className="flex items-center justify-between gap-3">
-				<ThemeToggle />
-				<Button
-					onClick={logout}
-					variant="ghost"
-					className="flex items-center gap-2 rounded-full border border-transparent px-3 py-1 text-sm text-[rgb(var(--color-muted-foreground))] transition-colors hover:border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-secondary))] dark:hover:bg-[rgb(var(--color-secondary))]/40"
-				>
-					<IconLogout className="h-4 w-4" />
-					<span>Выйти</span>
-				</Button>
-			</div>
-		</div>
-	);
-
 	return (
 		<div className="min-h-screen bg-[rgb(var(--color-background))] text-[rgb(var(--color-foreground))] transition-colors">
 			<div className="flex min-h-screen">
@@ -117,7 +93,6 @@ export function AdminLayout() {
 						</p>
 					</div>
 					{navContent()}
-					{userPanel}
 				</aside>
 
 				<div className="flex min-h-screen flex-1 flex-col">
@@ -242,7 +217,17 @@ export function AdminLayout() {
 							</Button>
 						</div>
 						{navContent(handleNavigate)}
-						{userPanel}
+						<div className="flex items-center justify-between gap-3 rounded-2xl border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface-elevated))] p-4 transition-colors">
+							<ThemeToggle />
+							<Button
+								onClick={logout}
+								variant="ghost"
+								className="flex items-center gap-2 rounded-full border border-transparent px-3 py-1 text-sm text-[rgb(var(--color-muted-foreground))] transition-colors hover:border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-secondary))] dark:hover:bg-[rgb(var(--color-secondary))]/40"
+							>
+								<IconLogout className="h-4 w-4" />
+								<span>Выйти</span>
+							</Button>
+						</div>
 					</div>
 				</div>
 			) : null}

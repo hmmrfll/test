@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Select } from '../../../components/ui/select';
@@ -12,8 +13,15 @@ const roleLabels: Record<'owner' | 'admin' | 'editor', string> = {
 
 export function ProfileUsersPage() {
   const currentUser = useAuthStore((state) => state.user);
-  const members = useAuthStore((state) => state.users);
+  const members = useAuthStore((state) => state.members);
   const updateUserRole = useAuthStore((state) => state.updateUserRole);
+  const fetchMembers = useAuthStore((state) => state.fetchMembers);
+
+  useEffect(() => {
+    if (currentUser?.role === 'owner') {
+      fetchMembers();
+    }
+  }, [currentUser?.role, fetchMembers]);
 
   if (currentUser?.role !== 'owner') {
     return (
@@ -26,8 +34,6 @@ export function ProfileUsersPage() {
     );
   }
 
-  const visibleMembers = members.map(({ password, ...rest }) => rest);
-
   return (
     <Card>
       <CardHeader>
@@ -36,12 +42,10 @@ export function ProfileUsersPage() {
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex items-center justify-between text-sm text-muted">
-          <span>Всего пользователей: {visibleMembers.length}</span>
+          <span>Всего пользователей: {members.length}</span>
           <span>
             Редакторы:{' '}
-            {
-              visibleMembers.filter((member) => member.role === 'editor').length
-            }
+            {members.filter((member) => member.role === 'editor').length}
           </span>
         </div>
         <div className="overflow-auto rounded-xl border border-[rgb(var(--color-border))]">
@@ -55,7 +59,7 @@ export function ProfileUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleMembers.map((member) => {
+              {members.map((member) => {
                 const isOwner = member.role === 'owner';
                 return (
                   <TableRow key={member.id} className="border-b border-[rgb(var(--color-border))]">

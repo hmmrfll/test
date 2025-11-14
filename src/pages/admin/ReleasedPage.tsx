@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
@@ -30,8 +30,13 @@ const timeframes: Record<Filters['timeframe'], number> = {
 };
 
 export function ReleasedPage() {
-  const { posts, sources } = useContentStore();
+  const { posts, sources, fetchPosts, fetchSources, isLoadingPosts } = useContentStore();
   const [filters, setFilters] = useState<Filters>({ query: '', sourceId: 'all', timeframe: '30d' });
+
+  useEffect(() => {
+    fetchSources().catch(() => {});
+    fetchPosts({ postStatus: 'published' }).catch(() => {});
+  }, [fetchSources, fetchPosts]);
 
   const publishedPosts = useMemo(() => posts.filter((post) => post.status === 'published'), [posts]);
 
@@ -142,32 +147,42 @@ export function ReleasedPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPosts.map((post) => {
-                  const source = sourceMap[post.sourceId];
-                  return (
-                    <TableRow key={post.id} className="border-b border-[rgb(var(--color-border))] hover:bg-[rgba(var(--color-muted),0.35)]">
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{post.title}</span>
-                          <p className="line-clamp-2 text-xs text-muted">{post.content}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted">{source?.title ?? '—'}</TableCell>
-                      <TableCell className="text-sm text-muted">{formatDateTime(post.publishedAt)}</TableCell>
-                      <TableCell className="text-sm text-muted">{post.author}</TableCell>
-                      <TableCell>
-                        <PostStatusBadge status={post.status} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filteredPosts.length === 0 ? (
+                {isLoadingPosts ? (
                   <TableRow>
                     <TableCell colSpan={5} className="py-10 text-center text-sm text-muted">
-                      По выбранным фильтрам публикаций нет.
+                      Загружаем опубликованные материалы…
                     </TableCell>
                   </TableRow>
-                ) : null}
+                ) : (
+                  <>
+                    {filteredPosts.map((post) => {
+                      const source = sourceMap[post.sourceId];
+                      return (
+                        <TableRow key={post.id} className="border-b border-[rgb(var(--color-border))] hover:bg-[rgba(var(--color-muted),0.35)]">
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-foreground">{post.title}</span>
+                              <p className="line-clamp-2 text-xs text-muted">{post.content}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted">{source?.title ?? '—'}</TableCell>
+                          <TableCell className="text-sm text-muted">{formatDateTime(post.publishedAt)}</TableCell>
+                          <TableCell className="text-sm text-muted">{post.author}</TableCell>
+                          <TableCell>
+                            <PostStatusBadge status={post.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filteredPosts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-10 text-center text-sm text-muted">
+                          По выбранным фильтрам публикаций нет.
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </>
+                )}
               </TableBody>
             </Table>
           </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -8,8 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SourceStatusBadge } from '../../components/status-badge';
 import { useContentStore } from '../../store/content';
 import type { SourceType, Source } from '../../types/content';
-import { IconFilter } from '../../components/icons';
-import { IconPause, IconPlay, IconSettings } from '../../components/icons';
+import { IconFilter, IconPause, IconPlay, IconSettings } from '../../components/icons';
 import { Textarea } from '../../components/ui/textarea';
 
 type Filters = {
@@ -19,7 +18,7 @@ type Filters = {
 };
 
 export function SourcesPage() {
-  const { sources, addSource, updateSourceStatus, updateSourcePrompts } = useContentStore();
+  const { sources, addSource, updateSourceStatus, updateSourcePrompts, fetchSources, isLoadingSources } = useContentStore();
   const [filters, setFilters] = useState<Filters>({ query: '', type: 'all', status: 'all' });
   const [formState, setFormState] = useState({
     title: '',
@@ -30,6 +29,14 @@ export function SourcesPage() {
   });
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [editPrompts, setEditPrompts] = useState({ filterPrompt: '', formatPrompt: '' });
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [pendingSourceId, setPendingSourceId] = useState<string | null>(null);
+  const [savingPrompts, setSavingPrompts] = useState(false);
+  const [isAddCollapsed, setIsAddCollapsed] = useState(true);
+
+  useEffect(() => {
+    fetchSources().catch(() => {});
+  }, [fetchSources]);
 
   const filteredSources = useMemo(() => {
     return sources.filter((source) => {
@@ -55,18 +62,31 @@ export function SourcesPage() {
     return { byType, active, total: sources.length };
   }, [sources]);
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!formState.title || !formState.handle) return;
-    addSource({
-      ...formState,
-      status: 'active',
-    });
-    setFormState((current) => ({ ...current, title: '', handle: '', filterPrompt: '', formatPrompt: '' }));
+    setFormSubmitting(true);
+    try {
+      await addSource({
+        title: formState.title,
+        handle: formState.handle,
+        type: formState.type,
+        filterPrompt: formState.filterPrompt,
+        formatPrompt: formState.formatPrompt,
+      });
+      setFormState((current) => ({ ...current, title: '', handle: '', filterPrompt: '', formatPrompt: '' }));
+    } finally {
+      setFormSubmitting(false);
+    }
   };
 
-  const handleStatusToggle = (source: Source) => {
-    updateSourceStatus(source.id, source.status === 'active' ? 'paused' : 'active');
+  const handleStatusToggle = async (source: Source) => {
+    setPendingSourceId(source.id);
+    try {
+      await updateSourceStatus(source.id, source.status === 'active' ? 'paused' : 'active');
+    } finally {
+      setPendingSourceId(null);
+    }
   };
 
   const openEditPrompts = (source: Source) => {
@@ -74,13 +94,18 @@ export function SourcesPage() {
     setEditPrompts({ filterPrompt: source.filterPrompt, formatPrompt: source.formatPrompt });
   };
 
-  const savePrompts = () => {
-    if (!editingSource) return;
-    updateSourcePrompts(editingSource.id, {
-      filterPrompt: editPrompts.filterPrompt,
-      formatPrompt: editPrompts.formatPrompt,
-    });
-    setEditingSource(null);
+  const savePrompts = async () => {
+    if (!editingSource || !hasPromptsChanged) return;
+    setSavingPrompts(true);
+    try {
+      await updateSourcePrompts(editingSource.id, {
+        filterPrompt: editPrompts.filterPrompt,
+        formatPrompt: editPrompts.formatPrompt,
+      });
+      setEditingSource(null);
+    } finally {
+      setSavingPrompts(false);
+    }
   };
 
   const hasPromptsChanged =
@@ -89,52 +114,65 @@ export function SourcesPage() {
   return (
     <div className="flex flex-col gap-6">
       <Card className="shadow-[0_30px_60px_-40px_rgba(78,115,248,0.25)] dark:shadow-slate-950/40">
-        <CardHeader>
-          <CardTitle>Добавить источник</CardTitle>
-          <CardDescription>Настройте промты для фильтрации и форматирования</CardDescription>
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Добавить источник</CardTitle>
+            <CardDescription>Настройте промты для фильтрации и форматирования</CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-center rounded-full border border-[rgb(var(--color-border))] px-4 py-2 text-sm font-medium text-[rgb(var(--color-foreground))] md:w-auto"
+            onClick={() => setIsAddCollapsed((prev) => !prev)}
+            aria-expanded={!isAddCollapsed}
+          >
+            {isAddCollapsed ? 'Развернуть форму' : 'Свернуть форму'}
+          </Button>
         </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-            <Select
-              value={formState.type}
-              onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value as SourceType }))}
-            >
-              <option value="telegram">Telegram канал</option>
-              <option value="website">Сайт / RSS</option>
-            </Select>
-            <Input
-              required
-              placeholder="Название"
-              value={formState.title}
-              onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-            />
-            <Input
-              required
-              placeholder={formState.type === 'telegram' ? '@username' : 'https://example.com'}
-              value={formState.handle}
-              onChange={(event) => setFormState((prev) => ({ ...prev, handle: event.target.value }))}
-            />
-            <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
-              <Textarea
-                placeholder="Промт для фильтрации контента"
-                value={formState.filterPrompt}
-                onChange={(event) => setFormState((prev) => ({ ...prev, filterPrompt: event.target.value }))}
-                className="min-h-[120px]"
+        {!isAddCollapsed ? (
+          <CardContent>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+              <Select
+                value={formState.type}
+                onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value as SourceType }))}
+              >
+                <option value="telegram">Telegram канал</option>
+                <option value="website">Сайт / RSS</option>
+              </Select>
+              <Input
+                required
+                placeholder="Название"
+                value={formState.title}
+                onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
               />
-              <Textarea
-                placeholder="Промт для форматирования контента"
-                value={formState.formatPrompt}
-                onChange={(event) => setFormState((prev) => ({ ...prev, formatPrompt: event.target.value }))}
-                className="min-h-[120px]"
+              <Input
+                required
+                placeholder={formState.type === 'telegram' ? '@username' : 'https://example.com'}
+                value={formState.handle}
+                onChange={(event) => setFormState((prev) => ({ ...prev, handle: event.target.value }))}
               />
-            </div>
-            <div className="md:col-span-2">
-              <Button type="submit" className="mt-2 w-full md:w-auto">
-                Подключить источник
-              </Button>
-            </div>
-          </form>
-        </CardContent>
+              <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+                <Textarea
+                  placeholder="Промт для фильтрации контента"
+                  value={formState.filterPrompt}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, filterPrompt: event.target.value }))}
+                  className="min-h-[120px]"
+                />
+                <Textarea
+                  placeholder="Промт для форматирования контента"
+                  value={formState.formatPrompt}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, formatPrompt: event.target.value }))}
+                  className="min-h-[120px]"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Button type="submit" className="mt-2 w-full md:w-auto" disabled={formSubmitting}>
+                  {formSubmitting ? 'Добавляем...' : 'Подключить источник'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        ) : null}
       </Card>
 
       <section className="grid w-full gap-4 md:grid-cols-3">
@@ -173,7 +211,7 @@ export function SourcesPage() {
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-[rgb(var(--color-border))] px-3 py-1 text-xs text-muted md:flex">
               <IconFilter className="h-3.5 w-3.5" />
-              {filteredSources.length} из {sources.length}
+              {isLoadingSources ? 'Загружаем источники...' : `${filteredSources.length} из ${sources.length}`}
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -235,9 +273,14 @@ export function SourcesPage() {
                           variant={source.status === 'active' ? 'outline' : 'secondary'}
                           className="inline-flex items-center gap-2 border-[rgb(var(--color-border))] px-3 py-1 text-xs font-medium text-[rgb(var(--color-foreground))]"
                           onClick={() => handleStatusToggle(source)}
+                          disabled={pendingSourceId === source.id}
                         >
                           {source.status === 'active' ? <IconPause className="h-3.5 w-3.5" /> : <IconPlay className="h-3.5 w-3.5" />}
-                          {source.status === 'active' ? 'Поставить на паузу' : 'Активировать'}
+                          {pendingSourceId === source.id
+                            ? 'Сохраняем...'
+                            : source.status === 'active'
+                              ? 'Поставить на паузу'
+                              : 'Активировать'}
                         </Button>
                         <Button
                           variant="default"
@@ -290,8 +333,8 @@ export function SourcesPage() {
                 <Button variant="ghost" onClick={() => setEditingSource(null)}>
                   Отмена
                 </Button>
-                <Button onClick={savePrompts} disabled={!hasPromptsChanged}>
-                  Сохранить изменения
+                <Button onClick={savePrompts} disabled={!hasPromptsChanged || savingPrompts}>
+                  {savingPrompts ? 'Сохраняем...' : 'Сохранить изменения'}
                 </Button>
               </div>
             </CardContent>

@@ -1,14 +1,11 @@
 import { create } from 'zustand';
+import { apiRequest } from '../lib/api';
 
-interface User {
+export interface User {
 	id: string;
 	email: string;
 	name: string;
 	role: 'owner' | 'admin' | 'editor';
-}
-
-interface Credentials extends User {
-	password: string;
 }
 
 interface AuthState {
@@ -16,130 +13,127 @@ interface AuthState {
 	token: string | null;
 	isLoading: boolean;
 	error: string | null;
-	users: Credentials[];
+	members: User[];
+	initialize: () => Promise<void>;
 	login: (payload: { email: string; password: string }) => Promise<void>;
 	register: (payload: { email: string; password: string; name: string }) => Promise<void>;
-	updateProfile: (payload: { name: string }) => void;
-	updateUserRole: (userId: string, role: User['role']) => void;
+	updateProfile: (payload: { name: string }) => Promise<void>;
+	updateUserRole: (userId: string, role: User['role']) => Promise<void>;
+	fetchMembers: () => Promise<void>;
 	logout: () => void;
 	clearError: () => void;
 }
 
-const seedUsers: Credentials[] = [
-	{
-		id: 'owner',
-		email: 'owner@gmail.com',
-		name: 'Ирина',
-		role: 'owner',
-		password: 'owner',
-	},
-	{
-		id: 'user-admin',
-		email: 'admin@kr-life.ru',
-		name: 'Алексей',
-		role: 'admin',
-		password: 'admin123',
-	},
-	{
-		id: 'user-editor',
-		email: 'editor@kr-life.ru',
-		name: 'Мария',
-		role: 'editor',
-		password: 'editor123',
-	},
-];
+const ACCESS_TOKEN_KEY = 'kr-life-token';
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const persistToken = (token: string | null) => {
+	if (token) {
+		window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+	} else {
+		window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+	}
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
 	user: null,
 	token: null,
 	isLoading: false,
 	error: null,
-	users: seedUsers,
-	async login({ email, password }) {
-		set({ isLoading: true, error: null });
-		await delay(600);
+	members: [],
+	async initialize() {
+		const storedToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+		if (!storedToken) return;
 
-		const credentials = get().users.find((user) => user.email === email.trim().toLowerCase());
-
-		if (!credentials || credentials.password !== password) {
-			const errorMessage = 'Неверный email или пароль';
-			set({ isLoading: false, error: errorMessage });
-			throw new Error(errorMessage);
+		set({ isLoading: true });
+		try {
+			const response = await apiRequest<{ user: User }>('/auth/me', { token: storedToken });
+			set({ user: response.user, token: storedToken, isLoading: false });
+		} catch {
+			persistToken(null);
+			set({ user: null, token: null, isLoading: false });
 		}
-
-		set({
-			user: {
-				id: credentials.id,
-				email: credentials.email,
-				name: credentials.name,
-				role: credentials.role,
-			},
-			token: crypto.randomUUID(),
-			isLoading: false,
-			error: null,
-		});
 	},
-	async register({ email, name, password }) {
+	async login(payload) {
 		set({ isLoading: true, error: null });
-		await delay(700);
-
-		const emailNormalized = email.trim().toLowerCase();
-		const existingUser = get().users.find((user) => user.email === emailNormalized);
-
-		if (existingUser) {
-			const errorMessage = 'Пользователь с таким email уже существует';
-			set({ isLoading: false, error: errorMessage });
-			throw new Error(errorMessage);
+		try {
+			const response = await apiRequest<{ user: User; token: string }>('/auth/login', {
+				method: 'POST',
+				body: payload,
+			});
+			persistToken(response.token);
+			set({ user: response.user, token: response.token, isLoading: false });
+		} catch (error) {
+			set({ error: (error as Error).message, isLoading: false });
+			throw error;
 		}
-
-		const newUser: Credentials = {
-			id: crypto.randomUUID(),
-			email: emailNormalized,
-			name,
-			role: 'editor',
-			password,
-		};
-
-		set((state) => ({
-			users: [...state.users, newUser],
-			user: {
-				id: newUser.id,
-				email: newUser.email,
-				name: newUser.name,
-				role: newUser.role,
-			},
-			token: crypto.randomUUID(),
-			isLoading: false,
-			error: null,
-		}));
 	},
-	updateProfile({ name }) {
-		const currentUser = get().user;
-		if (!currentUser) return;
-
-		set((state) => ({
-			user: { ...state.user!, name },
-			users: state.users.map((candidate) => (candidate.id === currentUser.id ? { ...candidate, name } : candidate)),
-		}));
+	async register(payload) {
+		set({ isLoading: true, error: null });
+		try {
+			const response = await apiRequest<{ user: User; token: string }>('/auth/register', {
+				method: 'POST',
+				body: payload,
+			});
+			persistToken(response.token);
+			set({ user: response.user, token: response.token, isLoading: false });
+		} catch (error) {
+			set({ error: (error as Error).message, isLoading: false });
+			throw error;
+		}
 	},
-	updateUserRole(userId, role) {
-		set((state) => {
-			const updatedUsers = state.users.map((user) => (user.id === userId ? { ...user, role } : user));
-			const currentUser = state.user && state.user.id === userId ? { ...state.user, role } : state.user;
-			return {
-				users: updatedUsers,
-				user: currentUser ?? state.user,
-			};
-		});
+	async updateProfile({ name }) {
+		const { token, user } = get();
+		if (!token || !user) return;
+
+		try {
+			const response = await apiRequest<{ user: User }>(`/users/${user.id}`, {
+				method: 'PUT',
+				body: { name },
+				token,
+			});
+			set((state) => ({
+				user: response.user,
+				members: state.members.map((member) => (member.id === response.user.id ? response.user : member)),
+			}));
+		} catch (error) {
+			set({ error: (error as Error).message });
+			throw error;
+		}
+	},
+	async updateUserRole(userId, role) {
+		const token = get().token;
+		if (!token) return;
+
+		try {
+			const response = await apiRequest<{ user: User }>(`/users/${userId}`, {
+				method: 'PUT',
+				body: { role },
+				token,
+			});
+			set((state) => ({
+				members: state.members.map((member) => (member.id === userId ? response.user : member)),
+				user: state.user && state.user.id === userId ? response.user : state.user,
+			}));
+		} catch (error) {
+			set({ error: (error as Error).message });
+			throw error;
+		}
+	},
+	async fetchMembers() {
+		const token = get().token;
+		if (!token) return;
+		try {
+			const response = await apiRequest<{ data: User[] }>('/users', { token });
+			set({ members: response.data });
+		} catch (error) {
+			set({ error: (error as Error).message });
+		}
 	},
 	logout() {
-		set({ user: null, token: null, error: null });
+		persistToken(null);
+		set({ user: null, token: null, members: [], error: null });
 	},
 	clearError() {
-		if (get().error) {
-			set({ error: null });
-		}
+		if (get().error) set({ error: null });
 	},
 }));

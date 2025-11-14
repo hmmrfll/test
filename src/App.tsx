@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AppProvider } from './providers/app-provider';
 import { ThemeProvider } from './providers/theme-provider';
@@ -25,6 +26,11 @@ export default function App() {
 
 function AppRoutes() {
 	const isAuthenticated = useAuthStore((state) => Boolean(state.token));
+	const initialize = useAuthStore((state) => state.initialize);
+
+	useEffect(() => {
+		initialize();
+	}, [initialize]);
 
 	return (
 		<Routes>

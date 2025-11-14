@@ -9,6 +9,8 @@ export interface Source {
   type: SourceType;
   status: SourceStatus;
   createdAt: string;
+  updatedAt?: string;
+  ownerId?: string | null;
   filterPrompt: string;
   formatPrompt: string;
 }
@@ -26,6 +28,8 @@ export interface PostHistoryEvent {
 export interface Post {
   id: string;
   sourceId: string;
+  sourceTitle?: string;
+  sourceHandle?: string;
   title: string;
   content: string;
   originalContent: string;
